@@ -1,9 +1,35 @@
 import { Injectable } from '@angular/core'
 import { HostAppService } from './api/hostApp'
-import { CLIHandler, CLIEvent } from './api/cli'
+import { CLIHandler, CLIEvent, withCLITitle } from './api/cli'
 import { HostWindowService } from './api/hostWindow'
 import { QuickConnectProfileProvider } from './api/profileProvider'
 import { ProfilesService } from './services/profiles.service'
+
+// Schemes that never denote a connection profile provider
+const NON_PROFILE_URL_SCHEMES = ['tabby', 'file', 'http', 'https']
+
+/**
+ * Splits `telnet://1.2.3.4:23` into the `telnet` provider and the
+ * `1.2.3.4:23` quick connect query
+ */
+export function parseQuickConnectURL (arg: unknown): { providerId: string, query: string }|null {
+    if (typeof arg !== 'string') {
+        return null
+    }
+    const match = /^([a-z][a-z0-9+.-]*):\/\/(.*)$/i.exec(arg)
+    if (!match) {
+        return null
+    }
+    const providerId = match[1].toLowerCase()
+    if (NON_PROFILE_URL_SCHEMES.includes(providerId)) {
+        return null
+    }
+    const query = match[2].replace(/\/+$/, '')
+    if (!query) {
+        return null
+    }
+    return { providerId, query }
+}
 
 @Injectable()
 export class ProfileCLIHandler extends CLIHandler {
@@ -21,45 +47,59 @@ export class ProfileCLIHandler extends CLIHandler {
         const op = event.argv._[0]
 
         if (op === 'profile') {
-            this.handleOpenProfile(event.argv.profileName!)
+            this.handleOpenProfile(event.argv.profileName!, event.argv.title)
             return true
         }
         if (op === 'recent') {
-            this.handleOpenRecentProfile(event.argv.profileNumber!)
+            this.handleOpenRecentProfile(event.argv.profileNumber!, event.argv.title)
             return true
         }
         if (op === 'quickConnect') {
-            this.handleOpenQuickConnect(event.argv.providerId!, event.argv.query!)
+            this.handleOpenQuickConnect(event.argv.providerId!, event.argv.query!, event.argv.title)
             return true
         }
+
+        const url = parseQuickConnectURL(op)
+        if (url && this.getQuickConnectProvider(url.providerId)) {
+            this.handleOpenQuickConnect(url.providerId, url.query, event.argv.title)
+            return true
+        }
+
         return false
     }
 
-    private async handleOpenProfile (profileName: string) {
+    private async handleOpenProfile (profileName: string, title?: string) {
         const profile = (await this.profiles.getProfiles()).find(x => x.name === profileName)
         if (!profile) {
             console.error('Requested profile', profileName, 'not found')
             return
         }
-        this.profiles.openNewTabForProfile(profile)
+        this.profiles.openNewTabForProfile(withCLITitle(profile, title))
         this.hostWindow.bringToFront()
     }
 
-    private async handleOpenRecentProfile (profileNumber: number) {
+    private async handleOpenRecentProfile (profileNumber: number, title?: string) {
         const profiles = this.profiles.getRecentProfiles()
         if (profileNumber >= profiles.length) {
             return
         }
-        this.profiles.openNewTabForProfile(profiles[profileNumber])
+        this.profiles.openNewTabForProfile(withCLITitle(profiles[profileNumber], title))
         this.hostWindow.bringToFront()
     }
 
-    private async handleOpenQuickConnect (providerId: string, query: string) {
-        const quickConnectProviders = this.profiles.getProviders()
+    private getQuickConnectProviders (): QuickConnectProfileProvider<any>[] {
+        return this.profiles.getProviders()
             .filter((x): x is QuickConnectProfileProvider<any> => x instanceof QuickConnectProfileProvider)
-        const provider = quickConnectProviders.find(x => x.id === providerId)
+    }
+
+    private getQuickConnectProvider (providerId: string): QuickConnectProfileProvider<any>|undefined {
+        return this.getQuickConnectProviders().find(x => x.id.toLowerCase() === providerId.toLowerCase())
+    }
+
+    private async handleOpenQuickConnect (providerId: string, query: string, title?: string) {
+        const provider = this.getQuickConnectProvider(providerId)
         if(!provider) {
-            const available = quickConnectProviders.map(x => x.id).join(', ')
+            const available = this.getQuickConnectProviders().map(x => x.id).join(', ')
             console.error(`Requested provider "${providerId}" not found. Available providers: ${available}`)
             return
         }
@@ -68,7 +108,7 @@ export class ProfileCLIHandler extends CLIHandler {
             console.error(`Could not parse quick connect query "${query}"`)
             return
         }
-        this.profiles.openNewTabForProfile(profile)
+        this.profiles.openNewTabForProfile(withCLITitle(profile, title))
         this.hostWindow.bringToFront()
     }
 }

@@ -1,11 +1,6 @@
-import { compare as semverCompare } from 'semver'
-import { Observable, from, forkJoin, map, of } from 'rxjs'
+import { Observable, of } from 'rxjs'
 import { Injectable, Inject } from '@angular/core'
 import { Logger, LogService, PlatformService, BOOTSTRAP_DATA, BootstrapData, PluginInfo } from 'tabby-core'
-import { PLUGIN_BLACKLIST } from '../../../app/src/pluginBlacklist'
-
-const OFFICIAL_NPM_ACCOUNT = 'eugenepankov'
-
 
 @Injectable({ providedIn: 'root' })
 export class PluginManagerService {
@@ -24,63 +19,15 @@ export class PluginManagerService {
         this.userPluginsPath = bootstrapData.userPluginsPath
     }
 
-    listAvailable (query?: string): Observable<PluginInfo[]> {
-        return forkJoin(
-            this._listAvailableInternal('tabby-', 'tabby-plugin', query),
-            this._listAvailableInternal('terminus-', 'terminus-plugin', query),
-        ).pipe(
-            map(x => x.reduce((a, b) => a.concat(b), [])),
-            map(x => {
-                const names = new Set<string>()
-                return x.filter(item => {
-                    if (names.has(item.name)) {
-                        return false
-                    }
-                    names.add(item.name)
-                    return true
-                })
-            }),
-            map(x => x.sort((a, b) => b.searchScore! - a.searchScore!)),
-        )
+    listAvailable (_query?: string): Observable<PluginInfo[]> {
+        // The plugin registry lives on npm, which an air-gapped install cannot reach.
+        // Returning nothing keeps the Plugins tab usable for managing what is already
+        // installed without the app ever making an outbound request.
+        return of([])
     }
 
     listInstalled (query: string): Observable<PluginInfo[]> {
         return of(this.installedPlugins.filter(x=>x.name.includes(query)))
-    }
-
-    _listAvailableInternal (namePrefix: string, keyword: string, query?: string): Observable<PluginInfo[]> {
-        return from(
-            fetch(`https://registry.npmjs.com/-/v1/search?text=keywords%3A${keyword}%20${query}&size=250`).then(r => r.json()),
-        ).pipe(
-            map(response => response.objects
-                .filter(item => !item.keywords?.includes('tabby-dummy-transition-plugin'))
-                .map(item => ({
-                    name: item.package.name.substring(namePrefix.length),
-                    packageName: item.package.name,
-                    description: item.package.description,
-                    version: item.package.version,
-                    homepage: item.package.links.homepage,
-                    author: item.package.maintainers?.[0]?.username,
-                    isOfficial: item.package.publisher.username === OFFICIAL_NPM_ACCOUNT,
-                    searchScore: item.searchScore,
-                })),
-            ),
-            map(plugins => plugins.filter(x => x.packageName.startsWith(namePrefix))),
-            map(plugins => plugins.filter(x => !PLUGIN_BLACKLIST.includes(x.packageName))),
-            map(plugins => {
-                const mapping: Record<string, PluginInfo[]> = {}
-                for (const p of plugins) {
-                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    mapping[p.name] ??= []
-                    mapping[p.name].push(p)
-                }
-                return Object.values(mapping).map(list => {
-                    list.sort((a, b) => -semverCompare(a.version, b.version))
-                    return list[0]
-                })
-            }),
-            map(plugins => plugins.sort((a, b) => a.name.localeCompare(b.name))),
-        )
     }
 
     async installPlugin (plugin: PluginInfo): Promise<void> {

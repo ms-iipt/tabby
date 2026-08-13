@@ -17,6 +17,15 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                     [(ngModel)]='profile.options.port',
                 )
 
+            .mb-3
+                label(translate) Terminal type
+                input.form-control(
+                    type='text',
+                    placeholder='xterm',
+                    [(ngModel)]='profile.options.terminalType',
+                )
+                .form-text.text-muted(translate) Reported to the server as TERM. Must exist in the server's terminfo - AIX often has xterm but not xterm-256color.
+
             stream-processing-settings([options]='profile.options')
 
     li(ngbNavItem)

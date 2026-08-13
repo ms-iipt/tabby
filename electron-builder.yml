@@ -46,6 +46,8 @@ win:
   artifactName: tabby-${version}-portable-${env.ARCH}.${ext}
   signtoolOptions:
     rfc3161TimeStampServer: http://timestamp.sectigo.com
+portable:
+  artifactName: tabby-${version}-portable-${env.ARCH}.${ext}
 nsis:
   oneClick: false
   artifactName: tabby-${version}-setup-${env.ARCH}.${ext}

@@ -20,6 +20,13 @@ $teal:   #5bc0de !default;
 $pink:   #ff5b77 !default;
 $purple: #613d7c !default;
 
+// The accent this fork is branded with. Deliberately a separate variable from $blue:
+// $blue stays blue for anything that means the colour rather than the accent, and this
+// is the single place to change the brand. Mirrored by BRAND_ACCENT in
+// services/themes.service.ts, which supplies the same accent to the colour-scheme-
+// following theme.
+$brand:  #f58220 !default;
+
 
 @import "~bootstrap/scss/functions";
 
@@ -31,10 +38,11 @@ $table-bg-hover: rgba(255,255,255,.05);
 $table-border-color: rgba(255,255,255,.1);
 
 $theme-colors: (
-  primary: $blue,
+  primary: $brand,
   secondary: #38434e,
   success: $green,
-  info: $blue,
+  // Upstream already had info identical to primary, so it follows the brand too
+  info: $brand,
   warning: $orange,
   danger: $red,
   light: $gray-300,
@@ -78,8 +86,9 @@ $link-color: $gray-400;
 $link-hover-color: $white;
 $link-hover-decoration: none;
 
-$component-active-color: #4fadff;
-$component-active-bg: #0059a559;
+// Brand-hue equivalents of the upstream #4fadff / #0059a559, same lightness and alpha
+$component-active-color: #ffa14f;
+$component-active-bg: #a54d0059;
 
 $list-group-bg: $table-bg;
 $list-group-border-color: transparent;

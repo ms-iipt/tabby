@@ -1,5 +1,4 @@
 import * as glasstron from 'glasstron'
-import { autoUpdater } from 'electron-updater'
 import { Subject, Observable, debounceTime } from 'rxjs'
 import { BrowserWindow, app, ipcMain, Rectangle, Menu, screen, BrowserWindowConstructorOptions, TouchBar, nativeImage, WebContents, nativeTheme } from 'electron'
 import ElectronConfig = require('electron-config')
@@ -10,8 +9,7 @@ import macOSRelease from 'macos-release'
 import { compare as compareVersions } from 'compare-versions'
 
 import type { Application } from './app'
-import { parseArgs } from './cli'
-import { parseTabbyURL, isTabbyURL } from './urlHandler'
+import { parseCliArguments } from './urlHandler'
 
 let DwmEnableBlurBehindWindow: any = null
 if (process.platform === 'win32') {
@@ -66,7 +64,6 @@ export class Window {
             minHeight: 300,
             webPreferences: {
                 nodeIntegration: true,
-                preload: path.join(__dirname, 'sentry.js'),
                 backgroundThrottling: false,
                 contextIsolation: false,
             },
@@ -167,7 +164,6 @@ export class Window {
         }
 
         this.setupWindowManagement()
-        this.setupUpdater()
 
         this.ready = new Promise(resolve => {
             const listener = event => {
@@ -280,12 +276,11 @@ export class Window {
     }
 
     passCliArguments (argv: string[], cwd: string, secondInstance: boolean): void {
-        const urlArg = argv.find(arg => isTabbyURL(arg))
-        if (urlArg) {
-            this.send('cli', parseTabbyURL(urlArg, cwd), cwd, secondInstance)
-        } else {
-            this.send('cli', parseArgs(argv, cwd), cwd, secondInstance)
-        }
+        this.passParsedCliArguments(parseCliArguments(argv, cwd), cwd, secondInstance)
+    }
+
+    passParsedCliArguments (argv: Record<string, any>, cwd: string, secondInstance: boolean): void {
+        this.send('cli', argv, cwd, secondInstance)
     }
 
     private async enableDockedWindowStyles (enabled: boolean) {
@@ -446,7 +441,7 @@ export class Window {
             return { action: 'deny' }
         })
 
-        ipcMain.on('window-set-disable-vibrancy-while-dragging', (_event, value) => {
+        this.on('window-set-disable-vibrancy-while-dragging', (_, value) => {
             this.disableVibrancyWhileDragging = value && this.configStore.hacks?.disableVibrancyWhileDragging
         })
 
@@ -466,12 +461,15 @@ export class Window {
         this.window.on('move', onBoundsChange)
         this.window.on('resize', onBoundsChange)
 
-        ipcMain.on('window-set-traffic-light-position', (_event, x, y) => {
-            this.window.setWindowButtonPosition({ x, y })
+        // These used raw ipcMain.on, so every Window instance reacted to every window's
+        // events and a destroyed window dereferenced a null this.window - which crashed
+        // the main process. this.on() filters by sender and drops events after close.
+        this.on('window-set-traffic-light-position', (_, x, y) => {
+            this.window?.setWindowButtonPosition({ x, y })
         })
 
-        ipcMain.on('window-set-opacity', (_event, opacity) => {
-            this.window.setOpacity(opacity)
+        this.on('window-set-opacity', (_, opacity) => {
+            this.window?.setOpacity(opacity)
         })
 
         this.on('window-set-progress-bar', (_, value) => {
@@ -485,35 +483,6 @@ export class Window {
                 return
             }
             listener(e, ...args)
-        })
-    }
-
-    private setupUpdater () {
-        autoUpdater.autoDownload = true
-        autoUpdater.autoInstallOnAppQuit = true
-
-        autoUpdater.on('update-available', () => {
-            this.send('updater:update-available')
-        })
-
-        autoUpdater.on('update-not-available', () => {
-            this.send('updater:update-not-available')
-        })
-
-        autoUpdater.on('error', err => {
-            this.send('updater:error', err)
-        })
-
-        autoUpdater.on('update-downloaded', () => {
-            this.send('updater:update-downloaded')
-        })
-
-        this.on('updater:check-for-updates', () => {
-            autoUpdater.checkForUpdates()
-        })
-
-        this.on('updater:quit-and-install', () => {
-            autoUpdater.quitAndInstall()
         })
     }
 

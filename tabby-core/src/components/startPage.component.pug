@@ -13,13 +13,7 @@
             span {{command.label}}
 
 footer.d-flex.align-items-center
-    .btn-group.me-auto
-        button.btn.btn-link((click)='homeBase.openGitHub()')
-            i.fab.fa-github
-            span GitHub
-        button.btn.btn-link((click)='homeBase.reportBug()')
-            i.fas.fa-bug
-            span(translate) Report a problem
+    .me-auto
 
     .form-control-static.selectable.no-drag(
         translate='Version: {version}',

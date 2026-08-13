@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu, Tray, shell, screen, globalShortcut, MenuItemConstructorOptions, WebContents } from 'electron'
+import { app, ipcMain, Menu, Tray, screen, globalShortcut, MenuItemConstructorOptions, WebContents } from 'electron'
 import promiseIpc from 'electron-promise-ipc'
 import * as remote from '@electron/remote/main'
 import { spawnSync } from 'child_process'
@@ -8,6 +8,8 @@ import * as fs from 'fs'
 import { Subject, throttleTime } from 'rxjs'
 
 import { saveConfig } from './config'
+import { shouldOpenInNewWindow } from './cli'
+import { parseCliArguments } from './urlHandler'
 import { Window, WindowOptions } from './window'
 import { pluginManager } from './pluginManager'
 import { PTYManager } from './pty'
@@ -287,11 +289,24 @@ export class Application {
     }
 
     async handleSecondInstance (argv: string[], cwd: string): Promise<void> {
-        if (!this.windows.length) {
-            await this.newWindow()
+        try {
+            const parsedArgv = parseCliArguments(argv, cwd)
+
+            // A window created for these arguments is not a "second instance" for
+            // its own renderer - nothing has been opened in it yet
+            if (!this.windows.length || shouldOpenInNewWindow(parsedArgv)) {
+                const window = await this.newWindow()
+                window.passParsedCliArguments(parsedArgv, cwd, false)
+                return
+            }
+
+            this.presentAllWindows()
+            this.windows[this.windows.length - 1].passParsedCliArguments(parsedArgv, cwd, true)
+        } catch (err) {
+            // Never let a bad invocation leave the user with no feedback at all
+            console.error('Could not handle CLI arguments', argv, err)
+            this.presentAllWindows()
         }
-        this.presentAllWindows()
-        this.windows[this.windows.length - 1].passCliArguments(argv, cwd, true)
     }
 
     private useBuiltinGraphics (): void {
@@ -367,17 +382,6 @@ export class Application {
                     { role: 'zoom' },
                     { type: 'separator' },
                     { role: 'front' },
-                ],
-            },
-            {
-                role: 'help',
-                submenu: [
-                    {
-                        label: 'Website',
-                        click () {
-                            shell.openExternal('https://eugeny.github.io/tabby')
-                        },
-                    },
                 ],
             },
         ]

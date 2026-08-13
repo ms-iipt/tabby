@@ -1,0 +1,55 @@
+#!/bin/sh
+# Launches Tabby without tying it to the calling shell.
+#
+# Tabby is a GUI app: when it is not already running, the process you start from a
+# terminal *becomes* the app and the shell blocks until you quit it. Every invocation
+# here is detached instead, so the prompt comes back immediately whether Tabby was
+# already running (the arguments are handed to the existing instance) or not.
+#
+# The working directory is preserved, so `tabby open .` still resolves correctly.
+#
+# Install with e.g.
+#   ln -s "$PWD/extras/tabby-cli" /usr/local/bin/tabby
+
+set -e
+
+# A packaged install takes precedence; fall back to a development checkout
+if [ -n "$TABBY_EXECUTABLE" ]; then
+    set -- "$TABBY_EXECUTABLE" "$@"
+elif [ -x /Applications/Tabby.app/Contents/MacOS/Tabby ]; then
+    set -- /Applications/Tabby.app/Contents/MacOS/Tabby "$@"
+elif command -v tabby-terminal >/dev/null 2>&1; then
+    set -- tabby-terminal "$@"
+else
+    # Development checkout: this script lives in <repo>/extras/
+    self=$0
+    # Resolve the symlink that an install like the one above creates
+    while [ -L "$self" ]; do
+        link=$(readlink "$self")
+        case $link in
+            /*) self=$link ;;
+            *) self=$(dirname "$self")/$link ;;
+        esac
+    done
+    repo=$(cd "$(dirname "$self")/.." && pwd)
+    if [ ! -x "$repo/node_modules/.bin/electron" ]; then
+        echo "tabby: no packaged install found, and $repo has no dependencies installed" >&2
+        echo "tabby: run 'yarn' in $repo, or set TABBY_EXECUTABLE to a Tabby binary" >&2
+        exit 1
+    fi
+    # Checked up front because the launch below discards output - without this the app
+    # would exit with "Unable to find electron app" and the user would see nothing at all
+    if [ ! -f "$repo/app/dist/main.js" ]; then
+        echo "tabby: $repo has not been built yet" >&2
+        echo "tabby: run 'yarn build' in $repo" >&2
+        exit 1
+    fi
+    # Without this the app looks for its plugins under resourcesPath, which only
+    # exists in a packaged build - a dev checkout would start with no plugins at all
+    TABBY_DEV=1
+    export TABBY_DEV
+    set -- "$repo/node_modules/.bin/electron" "$repo/app" "$@"
+fi
+
+# Detach: no controlling terminal, no job-control link to this shell
+nohup "$@" >/dev/null 2>&1 &

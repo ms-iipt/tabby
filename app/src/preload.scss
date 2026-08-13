@@ -11,7 +11,7 @@ app-root {
   height: 100vh;
   display: flex;
   animation: 0.5s ease-out fadeIn;
-  background-image: radial-gradient(#3a66820a 0%,  #000e17 30%, black 100%);
+  background-image: radial-gradient(#b458090a 0%,  #170b00 30%, black 100%);
   background-color: black;
 
   &>div {
@@ -27,7 +27,7 @@ app-root {
 
       .bar {
         transition: 1s ease-out width;
-        background: #a1c5e4;
+        background: #f58220;
         height: 3px;
         box-shadow: 0 0 2px #ffffff1f;
       }
@@ -53,8 +53,11 @@ app-root {
 }
 
 
+// Not just the splash screen: .tabby-title is also the Welcome tab, the Start page and
+// the Settings > Application header, which take only geometry from their own stylesheets
 .tabby-title {
-  color: #a1c5e4;
+  // The logo's light face tone, so the wordmark sits with the artwork above it
+  color: #fbbc8a;
   font-family: 'Source Sans Pro';
   text-align: center;
   font-weight: normal;

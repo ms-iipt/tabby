@@ -12,7 +12,6 @@ process.env.TABBY_PLUGINS ??= ''
 process.env.TABBY_CONFIG_DIRECTORY ??= app.getPath('userData')
 
 import 'source-map-support/register'
-import './sentry'
 import './lru'
 import { parseArgs } from './cli'
 import { Application } from './app'
@@ -80,11 +79,19 @@ app.on('open-url', async (event, url) => {
     }
 })
 
-app.on('second-instance', async (_event, newArgv, cwd) => {
-    application.handleSecondInstance(newArgv, cwd)
+// Chromium rewrites the argv it forwards to the first instance: switches get hoisted
+// ahead of positionals, its own switches are injected, and a `--opt value` pair is split
+// apart. Send our own pristine argv alongside so the first instance sees exactly what
+// the user typed, and only fall back to the forwarded copy if it is missing.
+app.on('second-instance', async (_event, newArgv, cwd, additionalData: any) => {
+    // This crosses a process boundary, so treat it as untrusted and fall back to
+    // Electron's own copy unless it has the shape we sent
+    const forwardedArgv = Array.isArray(additionalData?.argv) ? additionalData.argv : newArgv
+    const forwardedCwd = typeof additionalData?.cwd === 'string' ? additionalData.cwd : cwd
+    application.handleSecondInstance(forwardedArgv, forwardedCwd)
 })
 
-if (!app.requestSingleInstanceLock()) {
+if (!app.requestSingleInstanceLock({ argv: process.argv, cwd: process.cwd() })) {
     app.quit()
     app.exit(0)
 }

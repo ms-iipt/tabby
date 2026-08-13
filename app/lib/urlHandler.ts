@@ -1,4 +1,4 @@
-import { createParserConfig } from './cli'
+import { createParserConfig, parseArgs, YargsOption } from './cli'
 import { parse as parseShellCommand } from 'shell-quote'
 
 export function isTabbyURL (arg: string): boolean {
@@ -15,6 +15,8 @@ export function parseTabbyURL (url: string, cwd: string = process.cwd()): any {
         const urlInstance = new URL(url)
         const command = urlInstance.host || urlInstance.pathname.replace(/^\/+/, '')
         const config = createParserConfig(cwd)
+        // A key not present in the config yields `undefined`, unlike a plain Record lookup
+        const globalOptions: Record<string, YargsOption|undefined> = config.options
         const commandConfig = config.commands.find(cmd => {
             const primaryCommand = Array.isArray(cmd.command) ? cmd.command[0] : cmd.command
             return command.toLowerCase() === primaryCommand.split(/\s+/)[0].toLowerCase()
@@ -30,7 +32,7 @@ export function parseTabbyURL (url: string, cwd: string = process.cwd()): any {
         }
         for (const [key, value] of urlInstance.searchParams.entries()) {
             let parsedValue: any = value
-            const optionConfig = commandConfig.options?.[key] ?? commandConfig.positionals?.[key]
+            const optionConfig = commandConfig.options?.[key] ?? commandConfig.positionals?.[key] ?? globalOptions[key]
             if (optionConfig) {
                 switch (optionConfig.type) {
                     case 'boolean':
@@ -59,4 +61,16 @@ export function parseTabbyURL (url: string, cwd: string = process.cwd()): any {
         console.error('Failed to parse tabby:// URL:', e)
         return null
     }
+}
+
+/**
+ * Turns a raw argument vector into a parsed argv, transparently handling
+ * both `tabby://` URLs and regular command line arguments.
+ */
+export function parseCliArguments (argv: string[], cwd: string): any {
+    const urlArg = argv.find(arg => isTabbyURL(arg))
+    if (urlArg) {
+        return parseTabbyURL(urlArg, cwd) ?? { _: [] }
+    }
+    return parseArgs(argv, cwd)
 }

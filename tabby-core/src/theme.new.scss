@@ -47,7 +47,9 @@ app-root {
                     }
 
                     .progressbar {
-                        background: var(--bs-blue);
+                        // --bs-blue mirrors the terminal's ANSI blue; this is chrome, so
+                        // it follows the brand accent instead
+                        background: var(--bs-primary);
                     }
 
                     .activity-indicator {
@@ -82,6 +84,26 @@ $form-check-input-width: 1.4em;
 $form-switch-width: 2.5em;
 
 $input-placeholder-color: var(--theme-fg-more-2);
+
+// The fork's accent. This file does NOT import theme.vars.scss (only the web build
+// does), so Bootstrap would otherwise compile with its own #0d6efd. These have to be
+// set BEFORE the import because Bootstrap bakes $primary/$info into literals that no
+// runtime CSS variable can reach: the .text-bg-* helpers, the accordion's active
+// chevron data-URI, focus-ring rgba()s and the indeterminate checkbox.
+// $blue is deliberately NOT touched - themes.service.ts publishes --bs-blue as the
+// terminal palette's ANSI blue, and that should keep meaning blue.
+$brand:   #f58220;
+// Colour for text painted ON the accent. Not derived, because --theme-*-fg is derived as
+// more(colour, 3) - near-white on a light scheme - and is overloaded: a button label sits
+// on the accent while an alert uses the same value as its background. White on #f58220 is
+// 2.6:1; black is 8.1:1.
+$brand-fg: #000;
+$primary: $brand;
+$info:    $brand;
+// Defaults to $blue-600 rather than to $primary, so it needs setting separately - it is
+// what tints .text-primary-emphasis and the accordion's expanded chevron (used by the
+// plugin manager's panels).
+$primary-text: $brand;
 
 @import '~bootstrap/scss/bootstrap.scss';
 @import "./theme.vendor.scss";
@@ -136,7 +158,7 @@ select.form-control {
 
 .nav-pills {
     --bs-nav-pills-border-radius: #{$nav-pills-border-radius};
-    --bs-nav-pills-link-active-color: var(--theme-primary-fg);
+    --bs-nav-pills-link-active-color: #{$brand-fg};
     --bs-nav-pills-link-active-bg: var(--theme-primary);
 }
 
@@ -229,6 +251,19 @@ tab-body {
     }
 }
 
+// Only the surfaces that paint text ON the accent get $brand-fg; .alert-* keeps the
+// derived tint, because there --theme-*-fg is the background rather than the text.
+// Deliberately not left to the contrast pass in themes.service.ts: that is governed by
+// terminal.minimumContrastRatio, a setting users lower to stop xterm washing out ANSI
+// colours, and it must not be able to make a primary button unreadable.
+// --bs-btn-active-color is untouched - it pairs with --theme-*-active-bg, whose derived
+// light-on-dark combination is already correct in both schemes.
+.btn-primary, .btn-info {
+    --bs-btn-color: #{$brand-fg};
+    --bs-btn-hover-color: #{$brand-fg};
+    --bs-btn-disabled-color: #{$brand-fg};
+}
+
 
 multi-hotkey-input {
     .item {
@@ -293,7 +328,7 @@ hotkey-input-modal {
         background: $input-bg;
 
         div {
-            background: $blue;
+            background: $brand;
         }
     }
 }

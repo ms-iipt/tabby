@@ -6,6 +6,15 @@ import { TerminalColorScheme, Theme } from '../api/theme'
 import { PlatformService, PlatformTheme } from '../api/platform'
 import { NewTheme } from '../theme'
 
+/**
+ * The fork's accent colour. Upstream derived the UI accent from the terminal colour
+ * scheme's ANSI blue, which made the chrome change colour with every scheme; pinning it
+ * keeps the branding constant. Only DOM chrome reads this - xterm.js takes its palette
+ * straight from scheme.colors, so terminal output is unaffected.
+ * Mirrored by $brand in theme.vars.scss.
+ */
+const BRAND_ACCENT = '#f58220'
+
 @Injectable({ providedIn: 'root' })
 export class ThemesService {
     get themeChanged$ (): Observable<Theme> { return this.themeChanged }
@@ -72,7 +81,6 @@ export class ThemesService {
         // const background = theme.background
         const backgroundMore = more(background.string(), 0.25).string()
         // const backgroundMore =more(theme.background, 0.25).string()
-        const accentIndex = 4
         const vars: Record<string, string> = {}
         const contrastPairs: string[][] = []
 
@@ -117,7 +125,7 @@ export class ThemesService {
             contrastPairs.push(['--theme-bg-more-2', '--theme-fg-more-2'])
 
             const themeColors = {
-                primary: theme.colors[accentIndex],
+                primary: BRAND_ACCENT,
                 secondary: isDark
                     ? less(theme.background, 0.5).string()
                     : less(theme.background, 0.125).string(),
@@ -125,7 +133,8 @@ export class ThemesService {
                 warning: theme.colors[3],
                 danger: theme.colors[1],
                 success: theme.colors[2],
-                info: theme.colors[4],
+                // Upstream had info identical to primary, so it follows the brand too
+                info: BRAND_ACCENT,
                 dark: more(theme.background, 0.75).string(),
                 light: more(theme.foreground, 0.5).string(),
                 link: theme.colors[8], // for .btn-link
@@ -150,7 +159,7 @@ export class ThemesService {
                 contrastPairs.push([`--theme-${key}-active-bg`, `--theme-${key}-active-fg`])
             }
 
-            const switchBackground = less(theme.colors[accentIndex], 0.25).string()
+            const switchBackground = less(BRAND_ACCENT, 0.25).string()
             vars['--bs-form-switch-bg'] = `url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%27-4 -4 8 8%27%3e%3ccircle r=%273%27 fill=%27${switchBackground}%27/%3e%3c/svg%3e")`
         }
 

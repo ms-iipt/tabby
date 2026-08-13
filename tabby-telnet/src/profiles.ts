@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core'
 import { NewTabParameters, PartialProfile, TranslateService, QuickConnectProfileProvider } from 'tabby-core'
 import { TelnetProfileSettingsComponent } from './components/telnetProfileSettings.component'
 import { TelnetTabComponent } from './components/telnetTab.component'
-import { TelnetProfile } from './session'
+import { DEFAULT_TERMINAL_TYPE, TelnetProfile } from './session'
 
 @Injectable({ providedIn: 'root' })
 export class TelnetProfilesService extends QuickConnectProfileProvider<TelnetProfile> {
@@ -14,6 +14,7 @@ export class TelnetProfilesService extends QuickConnectProfileProvider<TelnetPro
         options: {
             host: null,
             port: 23,
+            terminalType: DEFAULT_TERMINAL_TYPE,
             inputMode: 'local-echo',
             outputMode: null,
             inputNewlines: null,
@@ -36,10 +37,16 @@ export class TelnetProfilesService extends QuickConnectProfileProvider<TelnetPro
                 options: {
                     host: '',
                     port: 23,
-                    inputMode: 'readline',
+                    terminalType: DEFAULT_TERMINAL_TYPE,
+                    // Real telnet servers (AIX, RHEL, network gear) run the session on a pty
+                    // and drive echo through telnet ECHO negotiation, so the terminal has to
+                    // pass bytes through untouched - line editing and newline rewriting here
+                    // would break TUIs and swallow terminal replies such as the cursor
+                    // position report
+                    inputMode: null,
                     outputMode: null,
                     inputNewlines: null,
-                    outputNewlines: 'crlf',
+                    outputNewlines: null,
                 },
                 isBuiltin: true,
                 isTemplate: true,
@@ -91,8 +98,11 @@ export class TelnetProfilesService extends QuickConnectProfileProvider<TelnetPro
             options: {
                 host,
                 port,
-                inputMode: 'readline',
-                outputNewlines: 'crlf',
+                terminalType: DEFAULT_TERMINAL_TYPE,
+                // See the note on the telnet template profile - quick connect targets
+                // real telnet servers, so the stream is passed through untouched
+                inputMode: null,
+                outputNewlines: null,
             },
         }
     }
