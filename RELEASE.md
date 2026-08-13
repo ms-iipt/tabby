@@ -76,8 +76,9 @@ if (version.includes('-c')) {           // 하이픈이 있으면 "태그 이후
 
 ## 2. GitHub Actions로 릴리즈 (권장)
 
-[.github/workflows/build.yml](.github/workflows/build.yml)이 `push`와 `pull_request` 모두에서
-동작합니다. macOS / Linux / Windows 빌드가 병렬로 돌고 결과물이 artifact로 올라갑니다.
+[.github/workflows/build.yml](.github/workflows/build.yml)이 모든 `push`에서 동작합니다.
+`Lint`와 `Windows-Build`가 **서로 독립적으로 병렬 실행**되고(lint가 깨져도 산출물은 나옵니다),
+결과물이 artifact로 올라갑니다. **태그 push면 추가로 GitHub Release가 만들어지고 zip이 첨부됩니다.**
 
 ```bash
 # 1) 변경사항 커밋
@@ -93,15 +94,31 @@ git push origin v1.0.236
 ```
 
 태그 push도 `push` 이벤트이므로 워크플로가 실행됩니다.
-**Actions → 해당 run → 하단 Artifacts** 에서 내려받으세요.
+
+### 내려받는 곳
+
+| 경로 | 링크 | 만료 | 로그인 |
+|---|---|---|---|
+| **Releases** (태그 빌드) | `https://github.com/<owner>/tabby/releases/tag/<태그>` | 없음 | 불필요(공개 저장소) |
+| Actions artifact (모든 빌드) | Actions → 해당 run → 하단 Artifacts | 90일 | 필요 |
+
+**태그를 달았다면 Releases를 쓰세요.** 첨부 파일이 `tabby-<ver>-portable-x64.zip` 그대로라
+바로 실행 환경으로 풀 수 있습니다.
+
+> **Actions artifact는 zip이 두 겹입니다.** `actions/upload-artifact`가 다운로드 파일명을
+> **artifact 이름**으로 정하는데 이 이름은 `Windows portable build (x64)`로 고정되어 있고,
+> 버전은 electron-builder가 붙인 **안쪽** 파일명에만 있습니다
+> ([electron-builder.yml](electron-builder.yml)의 `tabby-${version}-portable-${env.ARCH}.${ext}`).
+> 그래서 `Windows portable build (x64).zip` → 안에 `tabby-<ver>-portable-x64.zip`이 들어 있습니다.
+> Release 첨부 파일에는 이 래핑이 없습니다.
 
 ### 산출물
 
 기본 실행은 **Windows x64 portable zip 하나만** 만듭니다. 빌드 시간을 줄이기 위한 설정입니다.
 
-| Artifact 이름 | 파일 |
+| 산출물 | 파일 |
 |---|---|
-| `Windows portable build (x64)` | `tabby-<ver>-portable-x64.zip` |
+| Release 첨부 / artifact 내부 | `tabby-<ver>-portable-x64.zip` |
 
 압축을 푼 폴더가 그대로 실행 환경입니다. `Tabby.exe` 옆에 **`data`** 폴더를 만들어 두면
 설정이 `%APPDATA%` 대신 그 안에 저장됩니다 ([app/lib/portable.ts](app/lib/portable.ts)).
@@ -118,35 +135,37 @@ git push origin v1.0.236
 |---|---|---|
 | 빌드 타깃 | `WINDOWS_TARGETS: zip` | `nsis,zip` 로 변경 (설치본 추가) |
 | 아키텍처 | x64 | `ARCH` / `RUST_TARGET_TRIPLE` 을 arm64로 변경 |
-| macOS / Linux | 건너뜀 | 아래 "전체 플랫폼 빌드" 참고 |
+| macOS / Linux | 잡 자체가 없음 | 아래 "macOS / Linux" 참고 |
 
 로컬 `node scripts/build-windows.mjs`는 이 변수가 없으면 **세 타깃 모두** 만듭니다.
 
-### 전체 플랫폼 빌드 (macOS / Linux 포함)
+### macOS / Linux
 
-macOS·Linux 잡은 기본적으로 실행되지 않습니다. 필요할 때만 수동으로 돌리세요.
-
-**Actions → Package-Build → Run workflow → "Also build macOS and Linux packages" 체크 → Run**
-
-(`workflow_dispatch` 이벤트에서만 `inputs`가 정의되므로, 일반 push에서는 자동으로
-건너뛰어집니다.)
+이 워크플로에는 `Lint`와 `Windows-Build` **두 잡뿐입니다.** macOS·Linux 잡은 없습니다.
+필요하면 아래 "3. 로컬 빌드"의 해당 절차로 직접 만드세요.
 
 ### 서명
 
-코드 서명은 자격 증명이 있을 때만 수행됩니다.
+**현재 CI 빌드는 항상 미서명입니다.** [.github/workflows/build.yml](.github/workflows/build.yml)이
+서명 시크릿을 하나도 넘기지 않기 때문입니다. [scripts/build-windows.mjs](scripts/build-windows.mjs)는
+`SM_KEYPAIR_ALIAS`가 있을 때만 `forceCodeSigning`을 켜고 `smctl sign`을 부르는데, 그 값이 늘
+비어 있어 서명 경로를 타지 않습니다. 서명하려면 워크플로에 `SM_KEYPAIR_ALIAS` /
+`SM_CODE_SIGNING_CERT_SHA1_HASH` / `SM_PUBLISHER_NAME`을 `env`로 추가하세요.
 
-- **Windows**: DigiCert Software Trust Manager. `secrets.SM_API_KEY`가 비어 있으면
-  `SIGNING_AVAILABLE`이 `false`가 되어 미서명 빌드로 진행됩니다.
-  (업스트림 워크플로는 태그 push 시 무조건 서명 경로를 타서, 인증서가 없는 포크에서는
-  빌드가 실패했습니다. 이 포크는 시크릿 유무로 분기하도록 수정되어 있습니다.)
-- **macOS**: `secrets.CSC_LINK`가 없으면 `forceCodeSigning`이 false가 되어 미서명 진행.
+같은 이유로 `KEYGEN_TOKEN`도 없어 electron-builder의 자체 publish는 `never`입니다.
+Release 첨부는 electron-builder가 아니라 워크플로의 `Publish release` 단계가 담당하므로
+서로 충돌하지 않습니다.
 
 미서명 Windows 빌드는 실행 시 SmartScreen 경고가 뜰 수 있습니다.
 
 ### 사전 조건
 
-- **Lint 통과 필수** — `Windows-Build`/`macOS-Build`/`Linux-Build` 모두 `needs: Lint`입니다.
-  로컬에서 미리 확인: `yarn run lint`
+- **Lint는 빌드를 막지 않습니다** — `Windows-Build`에 `needs: Lint`가 없어서 두 잡이 독립
+  실행됩니다. lint가 깨져도 산출물과 Release는 그대로 나오니, 릴리즈 전에 직접 확인하세요:
+  `yarn run lint`
+- **`contents: write` 권한 필요** — 저장소 기본 워크플로 토큰이 read-only라
+  `Windows-Build` 잡에 `permissions: contents: write`를 명시해 두었습니다. 없으면 Release
+  업로드가 403으로 실패합니다.
 - **태그를 fetch할 수 있어야 함** — 워크플로는 `fetch-depth: 0`으로 체크아웃합니다.
   `vars.mjs`가 `git describe --tags`를 쓰기 때문에 태그가 없으면 빌드가 즉시 실패합니다.
 

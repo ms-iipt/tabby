@@ -39,6 +39,11 @@ jobs:
   Windows-Build:
     runs-on: windows-2022
 
+    # The "Publish release" step creates a release and uploads an asset to it. The repo's
+    # default workflow token is read-only, so without this the upload fails with a 403.
+    permissions:
+      contents: write
+
     env:
       # Single arch on purpose. For arm64, switch both of these to
       # aarch64-pc-windows-msvc / arm64 (or reintroduce a matrix).
@@ -140,3 +145,15 @@ jobs:
       with:
         name: Windows portable build (${{env.ARCH}})
         path: artifact-portable
+
+    # Tag pushes additionally get a GitHub Release with the zip attached. Actions artifacts
+    # expire after 90 days and need a GitHub login to download; a release asset on this
+    # public repo is permanent and fetchable over a plain URL, which is what the internal
+    # distribution flow actually wants. The asset keeps the name electron-builder gave it
+    # (tabby-<version>-portable-x64.zip) rather than the artifact's generic wrapper name.
+    - name: Publish release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: artifact-portable/*
+        fail_on_unmatched_files: true
