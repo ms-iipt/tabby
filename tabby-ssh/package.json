@@ -42,6 +42,8 @@
     "tabby-terminal": "*"
   },
   "resolutions": {
-    "glob": "7.2.3"
+    "glob": "7.2.3",
+    "async": "2.6.4",
+    "cli": "1.0.1"
   }
 }
