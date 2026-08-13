@@ -15,15 +15,7 @@ version = version.substring(1).trim()
 version = version.replace('-', '-c')
 
 if (version.includes('-c')) {
-    // A commit after the tag, i.e. <version>-c<n>-g<sha>. This fork's tags carry a marker
-    // (v1.0.235M1) which is not valid semver, and semver.inc() answers null instead of
-    // throwing for those - the old `.inc(...).replace(...)` then died with a bare
-    // "Cannot read properties of null", and since install-deps.mjs and build-native.mjs
-    // import this file from the root postinstall, that took `yarn install` down with it.
-    // So lift the marker out, bump the numeric part exactly as before, and put it back.
-    const [, base, marker, rest] = /^(\d+\.\d+\.\d+)([^-]*)(.*)$/.exec(version)
-    version = semver.inc(base + rest, 'prepatch').replace('-0', `-nightly.${process.env.REV ?? 0}`)
-    version = version.replace(/^\d+\.\d+\.\d+/, m => m + marker)
+    version = semver.inc(version, 'prepatch').replace('-0', `-nightly.${process.env.REV ?? 0}`)
 }
 
 export const builtinPlugins = [

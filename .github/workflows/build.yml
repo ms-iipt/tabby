@@ -53,9 +53,9 @@ jobs:
       # that only needs to hand its arguments to the running instance.
       # `nsis` is also available, see scripts/build-windows.mjs.
       WINDOWS_TARGETS: zip
-      # Fills the 4th field of the Windows FileVersion. Our version marker (M1, M2 ...)
-      # lives in the patch field's text, which parseInt() drops, so without this every
-      # internal revision would report the same FileVersion to Windows.
+      # Fills the 4th field of the Windows FileVersion (1.0.236.<run_number>). The tag only
+      # feeds the first three fields, so without this every rebuild of a given tag would
+      # report an identical FileVersion to Windows.
       BUILD_NUMBER: ${{ github.run_number }}
 
     steps:
