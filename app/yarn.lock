@@ -2503,10 +2503,10 @@ retry@^0.12.0:
   resolved "https://registry.yarnpkg.com/retry/-/retry-0.12.0.tgz#1b42a6266a21f07421d1b0b54b7dc167b01c013b"
   integrity sha512-9LkiTwjUh6rT555DtE9rTX+BKByPfrMzEAtnlEtdEwr3Nkffwiihqe2bWADg+OQRjt9gl6ICdmB/ZFDCGAtSow==
 
-russh@0.1.37:
-  version "0.1.37"
-  resolved "https://registry.yarnpkg.com/russh/-/russh-0.1.37.tgz#ad5c5b842e58dc9044664d96b789d0e369e72e9f"
-  integrity sha512-t6DQyuht+kmG57FX09vPT6tBL8rL7g5UdBiOLc+JPZNE/CMRuZqEo5JE1WmNEUcI6kjwwhmL0nw/BfDKrwb+jg==
+russh@0.1.38:
+  version "0.1.38"
+  resolved "https://registry.yarnpkg.com/russh/-/russh-0.1.38.tgz#174d6dd9fe271885dc349eb734e1b72d97826d78"
+  integrity sha512-vYT03vTTFTQMeGTTnXb5ZvYUBoJKct6UjiKZ3EOgwubWRHkQpXjbzumvtSuEDKfckZp3YSwtBNAEgmtsa+TYsA==
   dependencies:
     "@napi-rs/cli" "^2.18.3"
 
